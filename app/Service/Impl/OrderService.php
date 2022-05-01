@@ -177,6 +177,14 @@ class OrderService implements Order
                 $commodity->category_wholesale = $categoryWholesale;
             }
         }
+
+        //成本参数
+        if (key_exists("category_factory", $parseConfig)) {
+            $categoryFactory = $parseConfig['category_factory'];
+            if (!empty($categoryFactory)) {
+                $commodity->category_factory = $categoryFactory;
+            }
+        }
     }
 
     /**
@@ -303,6 +311,27 @@ class OrderService implements Order
             }
         }
 
+        //解析配置文件且注入对象
+        $commodityClone = clone $commodity;
+        $this->parseConfig($commodityClone, $userGroup, $owner, $num, $race);
+
+        if ($commodityClone->race && !key_exists($race, $commodityClone->race)) {
+            throw new JSONException("请选择商品种类");
+        }
+
+        //成本价
+        if ($commodityClone->race && $race != "") {
+            //获取种类成本
+            $factoryPrice = 0;
+            if ($commodityClone->category_factory && isset($commodityClone->category_factory[$race])) {
+                $factoryPrice = (float)$commodityClone->category_factory[$race];
+            }
+        } else {
+            $factoryPrice = $commodity->factory_price;
+        }
+
+        //-------------
+
         $shared = $commodity->shared; //获取商品的共享平台
 
         if ($shared) {
@@ -331,13 +360,6 @@ class OrderService implements Order
             }
         }
 
-        //解析配置文件且注入对象
-        $commodityClone = clone $commodity;
-        $this->parseConfig($commodityClone, $userGroup, $owner, $num, $race);
-
-        if ($commodity->race && !key_exists($race, $commodity->race)) {
-            throw new JSONException("请选择商品种类");
-        }
 
         //计算订单基础价格
         $amount = $this->calcAmount($owner, $num, $commodity, $userGroup, $race);
@@ -361,7 +383,7 @@ class OrderService implements Order
             $callbackDomain = $clientDomain;
         }
 
-        return Db::transaction(function () use ($user, $userGroup, $num, $contact, $device, $amount, $owner, $commodity, $pay, $cardId, $password, $coupon, $from, $widget, $race, $shared, $callbackDomain, $clientDomain) {
+        return Db::transaction(function () use ($user, $userGroup, $num, $contact, $device, $amount, $owner, $commodity, $pay, $cardId, $password, $coupon, $from, $widget, $race, $shared, $callbackDomain, $clientDomain, $factoryPrice) {
             //生成联系方式
             if ($user) {
                 $contact = "-";
@@ -381,9 +403,10 @@ class OrderService implements Order
             $order->status          = 0;
             $order->contact         = trim((string)$contact);
             $order->delivery_status = 0;
-            $order->card_num        = $num;
-            $order->user_id         = (int)$commodity->owner;
-            $order->rent            = $commodity->factory_price * $num; //成本价
+            $order->card_num = $num;
+            $order->user_id = (int)$commodity->owner;
+            $order->rent = $factoryPrice * $num; //成本价
+
             if ($race) {
                 $order->race = $race;
             }
@@ -836,7 +859,7 @@ class OrderService implements Order
      * @param int|Commodity|null $commodityId
      * @param string|null $race
      * @param bool $disableShared
-     * @param bool $shoping
+
      * @return array
      * @throws JSONException
      */
@@ -950,5 +973,51 @@ class OrderService implements Order
         $data ['couponMoney'] = sprintf("%.2f", (int)($couponMoney * 100) / 100);
 
         return $data;
+    }
+
+
+    /**
+     * @param Commodity $commodity
+     * @param string $race
+     * @param int $num
+     * @param string $contact
+     * @param string $password
+     * @param int|null $cardId
+     * @param int $userId
+     * @param string $widget
+     * @return array
+     * @throws JSONException
+     */
+    public function giftOrder(Commodity $commodity, string $race = "", int $num = 1, string $contact = "", string $password = "", ?int $cardId = null, int $userId = 0, string $widget = "[]"): array
+    {
+        return DB::transaction(function () use ($race, $widget, $contact, $password, $num, $cardId, $commodity, $userId) {
+            //创建订单
+            $date = Date::current();
+            $order = new  \App\Model\Order();
+            $order->owner = $userId;
+            $order->trade_no = Str::generateTradeNo();
+            $order->amount = 0;
+            $order->commodity_id = $commodity->id;
+            $order->card_id = $cardId;
+            $order->card_num = $num;
+            $order->pay_id = 1;
+            $order->create_time = $date;
+            $order->create_ip = Client::getAddress();
+            $order->create_device = 0;
+            $order->status = 0;
+            $order->password = $password;
+            $order->contact = trim($contact);
+            $order->delivery_status = 0;
+            $order->widget = $widget;
+            $order->rent = 0;
+            $order->race = $race;
+            $order->user_id = $commodity->owner;
+            $order->save();
+            $secret = $this->orderSuccess($order);
+            return [
+                "secret" => $secret,
+                "tradeNo" => $order->trade_no
+            ];
+        });
     }
 }

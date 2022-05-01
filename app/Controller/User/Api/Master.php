@@ -179,8 +179,8 @@ class Master extends User
             $array[$index]['id']         = $item->id;
             $array[$index]['name']       = $item->name;
         }
-        $json          = $this->json(200, null, $array);
-        $json['count'] = $data['total'];
+        $json = $this->json(200, null, $array);
+        $json['count'] =  $data->total();
         return $json;
     }
 
