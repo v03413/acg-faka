@@ -22,7 +22,7 @@ let acg = {
             opera: /opera/.test(window.navigator.userAgent.toLowerCase()),
             safari: /safari/.test(window.navigator.userAgent.toLowerCase())
         }, cache: {
-            raceId: "", payHtml: "", inventoryHidden: 0
+            raceId: "", payHtml: "", inventoryHidden: 0, order: []
         }, setting: {
             cache: 0, cache_expire: 0
         },
@@ -190,7 +190,7 @@ let acg = {
     }, API: {
         secret(opt) {
             acg.$post("/user/api/index/secret", {
-                orderId: opt.orderId, password: opt.password
+                orderId: acg.property.cache.order[opt.orderId].trade_no, password: opt.password
             }, res => {
                 typeof opt.begin === 'function' && opt.begin(res);
                 if (res.length == 0) {
@@ -211,6 +211,7 @@ let acg = {
                     return;
                 }
                 res.forEach(item => {
+                    acg.property.cache.order[item.id] = item;
                     typeof opt.success === 'function' && opt.success(item);
                 });
                 typeof opt.yes === 'function' && opt.yes(res);
@@ -249,8 +250,12 @@ let acg = {
                         layer.open({
                             type: 1,
                             title: "您购买的卡密如下：",
-                            area: ['420px', '420px'],
-                            content: '<textarea class="layui-input" style="padding: 15px;height: 98%;width: 100%;border: none;overflow-x: hidden;">' + res.secret + '</textarea>'
+                            area: acg.Util.isMobile() ? ["100%", "100%"] : ['420px', '420px'],
+                            content: '<textarea class="layui-input" style="padding: 15px;height: 98%;width: 100%;border: none;overflow-x: hidden;">' + res.secret + '</textarea>',
+                            btn: ['<span style="color:white;">查看更多信息/下载</span>'],
+                            yes: function () {
+                                window.open('/user/personal/purchaseRecord?tradeNo=' + res.tradeNo);
+                            }
                         });
                     }
                     acg.API.captcha(".captcha");
