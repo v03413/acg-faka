@@ -29,13 +29,15 @@ class Dashboard extends \App\Controller\Base\API\Manage
             $time = [Date::weekDay(1, Date::TYPE_START), Date::weekDay(7, Date::TYPE_END)];
         } elseif ($type == 3) {
             $time = [date("Y-m-01 00:00:00"), Date::calcDay()];
+        } elseif ($type == 5) {
+            $time = [date('Y-m-01 00:00:00', strtotime('-1 month')), date('Y-m-t 00:00:00', strtotime('-1 month'))];
         }
 
         if ($type == 4) {
-            $order = \App\Model\Order::query()->where("status", 1);
+            $order    = \App\Model\Order::query()->where("status", 1);
             $business = Business::query();
-            $cash = \App\Model\Cash::query();
-            $user = \App\Model\User::query();
+            $cash     = \App\Model\Cash::query();
+            $user     = \App\Model\User::query();
             $recharge = UserRecharge::query();
             //新注册用户数量
             $data['user_register_num'] = (clone $user)->count();
@@ -44,10 +46,10 @@ class Dashboard extends \App\Controller\Base\API\Manage
 
         } else {
             //init
-            $order = \App\Model\Order::query()->whereBetween('create_time', $time)->where("status", 1);
+            $order    = \App\Model\Order::query()->whereBetween('create_time', $time)->where("status", 1);
             $business = Business::query()->whereBetween("create_time", $time);
-            $cash = \App\Model\Cash::query()->whereBetween("create_time", $time);
-            $user = \App\Model\User::query();
+            $cash     = \App\Model\Cash::query()->whereBetween("create_time", $time);
+            $user     = \App\Model\User::query();
             $recharge = UserRecharge::query()->whereBetween("create_time", $time);
 
             //新注册用户数量
@@ -105,29 +107,29 @@ class Dashboard extends \App\Controller\Base\API\Manage
 
 
         $series = [
-            "trade" => [],
-            "profit" => [],
-            "cost" => [],
-            "cash" => [],
+            "trade"    => [],
+            "profit"   => [],
+            "cost"     => [],
+            "cash"     => [],
             "recharge" => [],
         ];
 
         for ($i = 1; $i <= $w; $i++) {
             $weeks[] = $week[$i];
             //交易额
-            $amount = \App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->sum("amount");
+            $amount            = \App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->sum("amount");
             $series["trade"][] = sprintf("%.2f", $amount);
             //手续费
-            $cost = \App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->where("user_id", "!=", 0)->sum("cost");
+            $cost             = \App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->where("user_id", "!=", 0)->sum("cost");
             $series["cost"][] = sprintf("%.2f", $cost);
             //纯盈利
-            $rent = \App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->where("user_id", 0)->sum("rent");//主站成本
+            $rent    = \App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->where("user_id", 0)->sum("rent");//主站成本
             $premium = \App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->where("user_id", 0)->sum("premium");//分站加价
 
             $profit = (\App\Model\Order::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->where("user_id", 0)->sum("amount") - $premium - $rent) + $cost;;
             $series["profit"][] = sprintf("%.2f", $profit);
             //提现
-            $cash = \App\Model\Cash::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->sum("amount");
+            $cash             = \App\Model\Cash::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->sum("amount");
             $series["cash"][] = sprintf("%.2f", $cash);
             //充值
             $recharge = \App\Model\UserRecharge::query()->whereBetween("create_time", [Date::weekDay($i, Date::TYPE_START), Date::weekDay($i, Date::TYPE_END)])->where("status", 1)->sum("amount");;
@@ -136,7 +138,7 @@ class Dashboard extends \App\Controller\Base\API\Manage
 
         return $this->json(200, "success", [
             "series" => $series,
-            "week" => $weeks
+            "week"   => $weeks
         ]);
     }
 }
